@@ -62,7 +62,3 @@ class BiEncoder(nn.Module):
 def dot_product_scores(uttr_vectors: T, ctx_vectors: T) -> T:
     r = torch.matmul(uttr_vectors, torch.transpose(ctx_vectors, 0, 1))
     return r
-
-
-def cosine_scores(uttr_vector: T, ctx_vectors: T):
-    return F.cosine_similarity(uttr_vector, ctx_vectors, dim=1)
