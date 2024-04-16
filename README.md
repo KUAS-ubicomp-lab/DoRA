@@ -8,4 +8,4 @@ We propose a novel fine-tuned demonstration retrievers architecture inspired by 
 
  # System Design 
 
-![IJCNN 2024 Design - Enhanced Version.drawio.png](..%2F..%2FExported%20Design%20Specifications%2FIJCNN%202024%20Design%20-%20Enhanced%20Version.drawio.png)
+![IJCNN 2024 Design - Enhanced Version drawio](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/1ad029fd-af14-463a-8c61-e209c773638e)
