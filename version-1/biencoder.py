@@ -1,19 +1,38 @@
-from typing import Tuple
+from typing import Tuple, List
+import random
+import numpy as np
 
 import torch
+import logging
+import collections
 from torch import Tensor as T
 from torch import nn
+
+from utils.biencoder_data import BiEncoderSample
+
+logger = logging.getLogger(__name__)
+
+BiEncoderBatch = collections.namedtuple(
+    "BiencoderInput",
+    [
+        "utterance_ids",
+        "utterance_segments",
+        "context_ids",
+        "ctx_segments",
+        "encoder_type",
+    ],
+)
 
 
 class BiEncoder(nn.Module):
     """Bi-Encoder model component. Encapsulates query/utterance and context/candidate encoders."""
 
     def __init__(
-        self,
-        utterance_model: nn.Module,
-        ctx_model: nn.Module,
-        fix_uttr_encoder: bool = False,
-        fix_ctx_encoder: bool = False,
+            self,
+            utterance_model: nn.Module,
+            ctx_model: nn.Module,
+            fix_uttr_encoder: bool = False,
+            fix_ctx_encoder: bool = False,
     ):
         super(BiEncoder, self).__init__()
         self.utterance_model = utterance_model
@@ -23,13 +42,13 @@ class BiEncoder(nn.Module):
 
     @staticmethod
     def get_representation(
-        sub_model: nn.Module,
-        ids: T,
-        segments: T,
-        positions: T,
-        attn_mask: T,
-        fix_encoder: bool = False,
-        representation_token_pos=0,
+            sub_model: nn.Module,
+            ids: T,
+            segments: T,
+            positions: T,
+            attn_mask: T,
+            fix_encoder: bool = False,
+            representation_token_pos=0,
     ) -> (T, T, T, T):
         sequence_output = None
         pooled_output = None
@@ -60,16 +79,16 @@ class BiEncoder(nn.Module):
         return sequence_output, pooled_output, hidden_states
 
     def forward(
-        self,
-        utterance_ids: T,
-        utterance_segments: T,
-        utterance_positions: T,
-        utterance_attn_mask: T,
-        context_ids: T,
-        ctx_segments: T,
-        ctx_attn_mask: T,
-        encoder_type: str = None,
-        representation_token_pos=0,
+            self,
+            utterance_ids: T,
+            utterance_segments: T,
+            utterance_positions: T,
+            utterance_attn_mask: T,
+            context_ids: T,
+            ctx_segments: T,
+            ctx_attn_mask: T,
+            encoder_type: str = None,
+            representation_token_pos=0,
     ) -> Tuple[T, T]:
         utterance_encoder = (
             self.utterance_model
@@ -96,6 +115,47 @@ class BiEncoder(nn.Module):
         )
 
         return q_pooled_out, ctx_pooled_out
+
+    @classmethod
+    def generate_biencoder_input(
+            cls,
+            samples: List[BiEncoderSample],
+            shuffle: bool = True,
+    ) -> BiEncoderBatch:
+        """
+        Creates a batch of the biencoder training tuple.
+        :param samples: list of BiEncoderSample-s to create the batch for
+        :param shuffle: shuffles demonstration pools
+        :return: BiEncoderBatch tuple
+        """
+        utterance_tensors = []
+        ctx_tensors = []
+
+        for sample in samples:
+            if shuffle:
+                positive_ctxs = sample.positive_passages
+                positive_ctx = positive_ctxs[np.random.choice(len(positive_ctxs))]
+            else:
+                positive_ctx = sample.positive_passages[0]
+
+            negative_ctxs = sample.negative_passages
+
+            if shuffle:
+                random.shuffle(negative_ctxs)
+
+        ctxs_tensor = torch.cat([ctx.view(1, -1) for ctx in ctx_tensors], dim=0)
+        utterance_tensor = torch.cat([q.view(1, -1) for q in utterance_tensors], dim=0)
+
+        ctx_segments = torch.zeros_like(ctxs_tensor)
+        utterance_segments = torch.zeros_like(utterance_tensor)
+
+        return BiEncoderBatch(
+            utterance_tensor,
+            utterance_segments,
+            ctxs_tensor,
+            ctx_segments,
+            "classification",
+        )
 
 
 def dot_product_scores(uttr_vectors: T, ctx_vectors: T) -> T:
