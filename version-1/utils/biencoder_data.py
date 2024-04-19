@@ -3,7 +3,7 @@ import logging
 from typing import List
 
 logger = logging.getLogger(__name__)
-BiEncoderPassage = collections.namedtuple("BiEncoderPassage", ["text", "title"])
+BiEncoderPassage = collections.namedtuple("BiEncoderPassage", ["text", "category"])
 
 
 class BiEncoderSample(object):
