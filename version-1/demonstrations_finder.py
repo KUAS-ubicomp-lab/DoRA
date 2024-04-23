@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class DemonstrationsFinder:
     def __init__(self, ctx) -> None:
         self.output_path = ctx.output_path
@@ -11,6 +14,19 @@ class DemonstrationsFinder:
                                                            ds_size=None if "ds_size" not in ctx else ctx.ds_size)
         print("started creating the corpus")
         self.corpus = self.task.get_corpus()
+
+
+def search(tokenized_query, is_train, idx, candidates):
+    global retriever
+    scores = retriever.get_scores(tokenized_query)
+    near_demonstration_ids = list(np.argsort(scores)[::-1][:candidates])
+    near_demonstration_ids = near_demonstration_ids[1:] if is_train else near_demonstration_ids
+    return [{"id": int(a)} for a in near_demonstration_ids], idx
+
+
+def _search(args):
+    tokenized_query, is_train, idx, candidates = args
+    return search(tokenized_query, is_train, idx, candidates)
 
 
 class RetrieverTask:

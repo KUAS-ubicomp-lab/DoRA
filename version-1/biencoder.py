@@ -158,6 +158,17 @@ class BiEncoder(nn.Module):
         )
 
 
+class BiEncoder_list_ranking_loss:
+    @staticmethod
+    def get_scores(uttr_vector: T, ctx_vectors: T) -> T:
+        scores = BiEncoder_list_ranking_loss.get_similarity_function()
+        return scores(uttr_vector, ctx_vectors)
+
+    @staticmethod
+    def get_similarity_function():
+        return dot_product_scores
+
+
 def dot_product_scores(uttr_vectors: T, ctx_vectors: T) -> T:
     r = torch.matmul(uttr_vectors, torch.transpose(ctx_vectors, 0, 1))
     return r
