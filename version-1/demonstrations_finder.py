@@ -1,4 +1,6 @@
+import tqdm
 import numpy as np
+import multiprocessing
 
 
 class DemonstrationsFinder:
@@ -14,6 +16,7 @@ class DemonstrationsFinder:
                                                            ds_size=None if "ds_size" not in ctx else ctx.ds_size)
         print("started creating the corpus")
         self.corpus = self.task.get_corpus()
+        print("Finished creating the corpus")
 
 
 def search(tokenized_query, is_train, idx, candidates):
@@ -27,6 +30,30 @@ def search(tokenized_query, is_train, idx, candidates):
 def _search(args):
     tokenized_query, is_train, idx, candidates = args
     return search(tokenized_query, is_train, idx, candidates)
+
+
+def find_demonstrations(ctx):
+    global retriever
+    demonstrations_finder = DemonstrationsFinder(ctx).corpus
+    tokenized_queries = [demonstrations_finder.task.get_field(input_query)
+                         for input_query in demonstrations_finder.task.dataset]
+
+    demonstrations_pool = multiprocessing.Pool(processes=None, initializer=retriever, initargs=(demonstrations_finder,))
+    demonstrations_pool.map(_search, tokenized_queries)
+    demonstrations_pool.close()
+
+    list_of_demonstrations = list(demonstrations_finder.task.dataset)[:100]
+    ctx_pre = [[tokenized_query, demonstrations_finder.is_train, idx, demonstrations_finder.candidates]
+               for idx, tokenized_query in enumerate(tokenized_queries)]
+    ctx_post = []
+    with tqdm.tqdm(total=len(ctx_pre)) as progress_bar:
+        for start, end in enumerate(demonstrations_pool.imap_unordered(_search, ctx_pre)):
+            progress_bar.update()
+            ctx_post.append(end)
+    for ctx, idx in ctx_post:
+        list_of_demonstrations[idx]['idx'] = idx
+        list_of_demonstrations[idx]['ctx'] = ctx
+    return list_of_demonstrations
 
 
 class RetrieverTask:
