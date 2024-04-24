@@ -133,15 +133,10 @@ class BiEncoder(nn.Module):
 
         for sample in samples:
             if shuffle:
-                positive_ctxs = sample.positive_passages
-                positive_ctx = positive_ctxs[np.random.choice(len(positive_ctxs))]
+                candidate_ctxs = sample.candidate_samples
+                candidate_ctxs[np.random.choice(len(candidate_ctxs))]
             else:
-                positive_ctx = sample.positive_passages[0]
-
-            negative_ctxs = sample.negative_passages
-
-            if shuffle:
-                random.shuffle(negative_ctxs)
+                sample.candidate_samples[0]
 
         ctxs_tensor = torch.cat([ctx.view(1, -1) for ctx in ctx_tensors], dim=0)
         utterance_tensor = torch.cat([q.view(1, -1) for q in utterance_tensors], dim=0)

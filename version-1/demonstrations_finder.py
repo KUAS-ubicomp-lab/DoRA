@@ -19,6 +19,16 @@ class DemonstrationsFinder:
         print("Finished creating the corpus")
 
 
+class RetrieverTask:
+    def __init__(self) -> None:
+        pass
+
+    @classmethod
+    def from_name(cls, name):
+        task_list = {}
+        return task_list[name]
+
+
 def search(tokenized_query, is_train, idx, candidates):
     global retriever
     scores = retriever.get_scores(tokenized_query)
@@ -39,7 +49,6 @@ def find_demonstrations(ctx):
                          for input_query in demonstrations_finder.task.dataset]
 
     demonstrations_pool = multiprocessing.Pool(processes=None, initializer=retriever, initargs=(demonstrations_finder,))
-    demonstrations_pool.map(_search, tokenized_queries)
     demonstrations_pool.close()
 
     list_of_demonstrations = list(demonstrations_finder.task.dataset)[:100]
@@ -54,13 +63,3 @@ def find_demonstrations(ctx):
         list_of_demonstrations[idx]['idx'] = idx
         list_of_demonstrations[idx]['ctx'] = ctx
     return list_of_demonstrations
-
-
-class RetrieverTask:
-    def __init__(self) -> None:
-        pass
-
-    @classmethod
-    def from_name(cls, name):
-        task_list = {}
-        return task_list[name]
