@@ -1,4 +1,6 @@
+import hydra
 import tqdm
+import json
 import numpy as np
 import multiprocessing
 
@@ -63,3 +65,14 @@ def find_demonstrations(ctx):
         list_of_demonstrations[idx]['idx'] = idx
         list_of_demonstrations[idx]['ctx'] = ctx
     return list_of_demonstrations
+
+
+@hydra.main(config_path="config", config_name="demonstrations_finder")
+def main(ctx):
+    list_of_demonstrations = find_demonstrations(ctx=ctx)
+    with open(ctx.output_path, "w") as f:
+        json.dump(list_of_demonstrations, f)
+
+
+if __name__ == '__main__':
+    main()
