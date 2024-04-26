@@ -44,16 +44,12 @@ class DemonstrationsScorer:
             position_ids.masked_fill_(entry.attention_mask == 0, 1)
 
             with torch.no_grad():
-                output = self.model(input_ids=entry.input_ids, attention_mask=entry.attention_mask,
-                                    position_ids=position_ids)
-                loss = self.cross_entropy_loss(entry=entry, output=output)
+                semantic_relevance = self.model(input_ids=entry.input_ids, attention_mask=entry.attention_mask,
+                                                position_ids=position_ids)
+                loss = self.cross_entropy_loss(entry=entry, output=semantic_relevance)
 
             for metadata, loss in zip(meta_data, loss):
                 metadata['score'] = loss
-
-            if i == 0:
-                logger.info(f"Prompt: {meta_data[0]['prompt']}")
-            ranking_candidates.extend(meta_data)
 
         with open(f"{self.output_file}tmp_{self.accelerator.device}.bin", "w") as f:
             json.dump(ranking_candidates, f)
