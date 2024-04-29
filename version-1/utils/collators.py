@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 from typing import Optional, Union
 
-from transformers import BertTokenizer
+from transformers import PreTrainedTokenizerBase
 from transformers.file_utils import PaddingStrategy
 
 
 @dataclass
 class DataCollator:
-    tokenizer: BertTokenizer
+    tokenizer: PreTrainedTokenizerBase
     device: object = None
     padding: Union[bool, str, PaddingStrategy] = True
     max_length: Optional[int] = 3000

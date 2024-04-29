@@ -63,7 +63,7 @@ def find_demonstrations(ctx):
             ctx_post.append(end)
     for ctx, idx in ctx_post:
         list_of_demonstrations[idx]['idx'] = idx
-        list_of_demonstrations[idx]['ctx'] = ctx
+        list_of_demonstrations[ctx]['ctx_candidates'] = ctx
     return list_of_demonstrations
 
 

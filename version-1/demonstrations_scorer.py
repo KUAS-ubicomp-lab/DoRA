@@ -1,5 +1,9 @@
+import collections
+import glob
 import json
 import logging
+import os
+import random
 
 import hydra
 import hydra.utils as hutils
@@ -68,11 +72,53 @@ class DemonstrationsScorer:
         loss = loss.cpu().detach().numpy().tolist()
         return loss
 
+    def ranking_candidates(self):
+        ranking_list = []
+        for path in enumerate(glob.glob(f"{self.output_file}tmp_*.bin")):
+            logger.info('gather selected candidates from \"{}\"'.format(path))
+            with open(path) as reader:
+                for j in reader.read():
+                    ranking_list.extend(j)
+        random.shuffle(ranking_list)  # making diversity of demonstrations
+
+        sample_collection = collections.defaultdict(list)
+        id_field = 'idx'
+        for item in ranking_list:
+            ctx = {"ctx": item.pop('ctx'), "score": item.pop("score")}
+            if item[id_field] not in sample_collection:
+                item['ctx_candidates'] = [ctx]
+                sample_collection[item[id_field]] = item
+            else:
+                sample_collection[item[id_field]]['ctx_candidates'].append(ctx)
+
+        ranked_demonstrations_list = list(sample_collection.values())
+        err = 0  # ERR handles multiple levels of MPCs relevance https://dl.acm.org/doi/10.1145/1645953.1646033
+        sample_candidates = len(ranked_demonstrations_list[0]['ctx_candidates'])
+        for sample in ranked_demonstrations_list:
+            assert len(sample['ctx_candidates']) == sample_candidates, \
+                f"{len(sample['ctx_candidates'])}!={sample_candidates}"
+            sorted_sample = sorted(sample['ctx_candidates'].items(), key=lambda x: x[1]['score'])[:5]
+            sample['ctx_candidates'] = [i[1]['ctxs'] for i in sorted_sample]
+            sample['ctx'] = sample['ctx_candidates'][0]
+            err += 1/([i[0] for i in 1-sorted_sample].index(0)+1)
+        logger.info(f"ERR: {err / len(ranked_demonstrations_list)}")
+
+        json.dump(ranked_demonstrations_list, open(f"{self.output_file}tmp_{self.accelerator.device}.bin", "w"))
+        for path in glob.glob(f"{self.output_file}tmp_*.bin"):
+            os.remove(path)
+        return ranked_demonstrations_list
+
 
 @hydra.main(config_path="configs", config_name="scorer")
-def main():
+def main(cfg):
+    logger.info('cfg:\n{}'.format(cfg))
     accelerator = Accelerator()
+    scorer = DemonstrationsScorer(cfg, accelerator)
+
+    scorer.forward()
     accelerator.wait_for_everyone()
+    if accelerator.is_main_process:
+        scorer.ranking_candidates()
 
 
 if __name__ == "__main__":
