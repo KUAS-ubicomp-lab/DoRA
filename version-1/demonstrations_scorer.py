@@ -100,7 +100,7 @@ class DemonstrationsScorer:
             sorted_sample = sorted(sample['ctx_candidates'].items(), key=lambda x: x[1]['score'])[:5]
             sample['ctx_candidates'] = [i[1]['ctxs'] for i in sorted_sample]
             sample['ctx'] = sample['ctx_candidates'][0]
-            err += 1/([i[0] for i in 1-sorted_sample].index(0)+1)
+            err += 1/([i[0] for i in 1-sorted_sample.sort()].index(0)+1)
         logger.info(f"ERR: {err / len(ranked_demonstrations_list)}")
 
         json.dump(ranked_demonstrations_list, open(f"{self.output_file}tmp_{self.accelerator.device}.bin", "w"))
