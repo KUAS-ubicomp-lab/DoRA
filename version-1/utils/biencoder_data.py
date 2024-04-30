@@ -1,4 +1,5 @@
 import collections
+import csv
 import logging
 from typing import List
 
@@ -7,12 +8,12 @@ from omegaconf import DictConfig
 from torch.utils.data import Dataset
 
 logger = logging.getLogger(__name__)
-BiEncoderPassage = collections.namedtuple("BiEncoderPassage", ["post", "label"])
+BiEncoderSource = collections.namedtuple("BiEncoderSource", ["post", "label"])
 
 
 class BiEncoderSample(object):
     utterance: str
-    candidate_samples: List[BiEncoderPassage]
+    candidate_samples: List[BiEncoderSource]
 
 
 @dataset_dict.add("rsdd")
@@ -29,6 +30,8 @@ class RSDDDataset(Dataset):
             setup_type,
             top_k,
             loss_type=None,
+            id_col: int = 0,
+            post_col: int = 1,
             rank_loss_top_sample=2,
             rank_loss_factor=1,
             rank_candidate_number=5,
@@ -47,6 +50,9 @@ class RSDDDataset(Dataset):
             shuffle_candidates=shuffle_candidates,
             query_special_suffix=query_special_suffix,
         )
+        self.id_col = id_col
+        self.post_col = post_col
+        self.data = get_reddit()
         self.max_instances = max_instances
         assert loss_type in ['list_ranking']
         if loss_type == 'list_ranking':
@@ -59,11 +65,24 @@ class RSDDDataset(Dataset):
         self.max_instances = None
         self.task_name = task_name
         self.file = file
-        self.data_files = []
-        self.data = []
+        self.data_files = self.load_data_from_dataset(ctx=file)
         self.normalize = normalize
         self.dataset = dataset_dict.IterableDatasetDict[task_name]()
         self.setup_type = setup_type
         assert self.setup_type in ["posts", "id", "label"]
 
         logger.info("Data files: %s", self.data_files)
+
+    def load_data_from_dataset(self, ctx):
+        get_reddit(ctx)
+        files = []
+        with open(self.file) as ifile:
+            reader = csv.reader(ifile, delimiter="\t")
+            for row in reader:
+                if row[self.id_col] == "id":
+                    continue
+                source_id = row[self.id_col]
+                source = row[self.post_col]
+                ctx[source_id] = BiEncoderSource(source, row[self.post_col])
+                files.append(ctx[source_id].candidate_samples)
+        return files

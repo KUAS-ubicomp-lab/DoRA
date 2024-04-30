@@ -4,6 +4,8 @@ import json
 import numpy as np
 import multiprocessing
 
+from .utils import biencoder_data
+
 
 class DemonstrationsFinder:
     def __init__(self, ctx) -> None:
@@ -17,7 +19,7 @@ class DemonstrationsFinder:
                                                            ctx.setup_type,
                                                            ds_size=None if "ds_size" not in ctx else ctx.ds_size)
         print("started creating the corpus")
-        self.corpus = self.task.get_corpus()
+        self.corpus = biencoder_data.RSDDDataset()
         print("Finished creating the corpus")
 
 
