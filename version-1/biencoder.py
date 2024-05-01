@@ -1,10 +1,9 @@
-from typing import Tuple, List
-import random
-import numpy as np
-
-import torch
-import logging
 import collections
+import logging
+from typing import Tuple, List
+
+import numpy as np
+import torch
 from torch import Tensor as T
 from torch import nn
 
@@ -163,7 +162,28 @@ class BiEncoder_list_ranking_loss:
     def get_similarity_function():
         return dot_product_scores
 
+    def calculate_loss(self,
+                       uttr_vectors: T,
+                       ctx_vectors: T,
+                       rank_loss_index
+                       ):
+        dot_product_scores = self.get_scores(uttr_vectors, ctx_vectors)
+        batch_size = dot_product_scores.size(0)
+        scores = dot_product_scores.view(batch_size, -1)
+        rank_demonstration_number = scores.size(-1)
+
+        rank_demonstration_precision = torch.diagonal(scores)
+        rank_demonstration_precision = torch.transpose(rank_demonstration_precision, 1, 0)
+        rank_position = (1/torch.arange(1, 1+rank_demonstration_number).view(1, -1).repeat(batch_size, 1).
+                         to(uttr_vectors))
+        list_ranking_loss = lambda_list_ranking_loss(rank_demonstration_precision, rank_position)
+        return list_ranking_loss
+
 
 def dot_product_scores(uttr_vectors: T, ctx_vectors: T) -> T:
     r = torch.matmul(uttr_vectors, torch.transpose(ctx_vectors, 0, 1))
     return r
+
+
+def lambda_list_ranking_loss(rank_demonstration_precision, rank_position):
+    return 1
