@@ -186,4 +186,36 @@ def dot_product_scores(uttr_vectors: T, ctx_vectors: T) -> T:
 
 
 def lambda_list_ranking_loss(rank_demonstration_precision, rank_position):
-    return 1
+    device = rank_demonstration_precision.device
+    rank_demonstration_precision = rank_demonstration_precision.clone()
+    rank_position = rank_position.clone()
+    _ = 1e8 if rank_demonstration_precision.dtype == torch.float32 else 1e4
+
+    padded_rank_position = rank_position == -1
+    rank_demonstration_precision[padded_rank_position] = float('-inf')
+    rank_position[padded_rank_position] = float('-inf')
+
+    # Sorting the true and predicted relevancy scores
+    rank_demonstration_precision_sorted, index_predicted = rank_demonstration_precision.sort(descending=True, dim=-1)
+
+    # Masking out the pairs of indices containing index of a padded element
+    sorted_rank_demonstration_precision = torch.gather(rank_position, dim=1, index=index_predicted)
+    sorted_distance = sorted_rank_demonstration_precision[:, :, None] - sorted_rank_demonstration_precision[:, None, :]
+    padded_rank_mask = torch.isfinite(sorted_distance)
+    padded_rank_mask = padded_rank_mask & (sorted_distance > 0)
+
+    sorted_rank_demonstration_precision.clamp_(min=1e-5)
+    rank_demonstration_indexes = 1./torch.arange(1, rank_demonstration_precision.shape[1] + 1).to(device)
+    topk_weights = torch.abs(rank_demonstration_indexes.view(1, -1, 1) - rank_demonstration_indexes.view(1, 1, -1))
+
+    # Clamping the array entries to maintain correct backprop (log(0) and division by 0)
+    ranking_diffs =((rank_demonstration_precision_sorted[:, :, None] - rank_demonstration_precision_sorted[:, None, :]).
+                    clamp(min=-50, max=50))
+    ranking_diffs.masked_fill_(torch.isnan(ranking_diffs), min=1e-5)
+    ranking_diffs_exp = torch.exp(-ranking_diffs)
+
+    losses = torch.log(1. + ranking_diffs_exp) * topk_weights
+    loss = torch.mean(losses[padded_rank_mask])
+
+    logger.info('loss:{}'.format(loss))
+    return loss
