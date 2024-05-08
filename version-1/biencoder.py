@@ -176,8 +176,18 @@ class BiEncoder_list_ranking_loss:
         rank_demonstration_precision = torch.transpose(rank_demonstration_precision, 1, 0)
         rank_position = (1/torch.arange(1, 1+rank_demonstration_number).view(1, -1).repeat(batch_size, 1).
                          to(uttr_vectors))
+        # List ranking loss
         list_ranking_loss = lambda_list_ranking_loss(rank_demonstration_precision, rank_position)
-        return list_ranking_loss
+
+        # In-batch negative loss
+        negative_scores = dot_product_scores
+        in_batch_position = ((torch.arange(0, batch_size, dtype=torch.long) * int(rank_demonstration_number)).
+                             to(uttr_vectors.device))
+        cross_entropy_loss = torch.nn.CrossEntropyLoss()
+        in_batch_negative_loss = cross_entropy_loss(negative_scores, in_batch_position)
+
+        total_loss = list_ranking_loss * rank_loss_index + in_batch_negative_loss
+        return total_loss
 
 
 def dot_product_scores(uttr_vectors: T, ctx_vectors: T) -> T:
