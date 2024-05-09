@@ -497,6 +497,18 @@ class DepRobertaPreTrainedModel(PreTrainedModel):
     base_model_prefix = "deproberta-large-depression"
 
     # Copied from transformers.modeling_bert.BertPreTrainedModel._init_weights
+    def __init__(self, *inputs, **kwargs):
+        super().__init__(*inputs, **kwargs)
+        args = kwargs['args']
+        args.demonstration_type = "prompt_tuning"
+        self.pt_demonstration_input_layer = args.pt_demonstration_input_layer
+        self.prompt_embeddings = args.prompt_embeddings
+        self.compression_n = args.compression_n
+        self.latent_dropout = args.latent_dropout
+        self.demonstration_n = args.demonstration_n
+        self.pt_activation = args.pt_activation
+        self.pt_demonstration_output_layer = args.pt_demonstration_output_layer
+
     def _init_weights(self, module):
         """ Initialize the weights """
         if isinstance(module, (nn.Linear, nn.Embedding)):
@@ -506,6 +518,23 @@ class DepRobertaPreTrainedModel(PreTrainedModel):
             module.weight.data.fill_(1.0)
         if isinstance(module, nn.Linear) and module.bias is not None:
             module.bias.data.zero_()
+
+    def set_latent_projection(self, demonstration_type, demonstration_sample):
+        self.demonstration_n = demonstration_sample
+        self.latent_dropout = nn.Dropout(0.1)
+        self.config.demonstration_type = demonstration_type
+
+        if demonstration_type == "prompt_tuning":
+            self.compression_n = demonstration_sample
+            self.prompt_embeddings = nn.Embedding(demonstration_sample, self.embedding_dim)
+            nn.LayerNorm(self.embedding_dim, eps=1e-6)
+            self.prompt_emb.weight = self.prompt_emb
+            self.pt_demonstration_input_layer = nn.Linear(nn.Embedding.embedding_dim, nn.Embedding.embedding_dim * 4)
+            self.pt_activation = nn.GELU
+            self.pt_demonstration_output_layer = nn.Linear(nn.Embedding.embedding_dim * 4, nn.Embedding.embedding_dim)
+            nn.LayerNorm(nn.Embedding.embedding_dim, eps=self.config.layer_norm_eps)
+        else:
+            raise NotImplementedError
 
 
 DEPROBERTA_START_DOCSTRING = r"""
@@ -613,6 +642,12 @@ class DepRobertaModel(DepRobertaPreTrainedModel):
         self.pooler = DepRobertaPooler(config) if add_pooling_layer else None
 
         self.init_weights()
+
+        if hasattr(config, "projection_type"):
+            self.set_latent_projection(config.projection_type, config.latent_projection)
+
+        # Initializing weights and applying final processing
+        self.post_init()
 
     def get_input_embeddings(self):
         return self.embeddings.word_embeddings
