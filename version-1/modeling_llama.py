@@ -439,6 +439,18 @@ class LlamaPreTrainedModel(PreTrainedModel):
     _no_split_modules = ["LlamaDecoderLayer"]
     _skip_keys_device_placement = "past_key_values"
 
+    def __init__(self, *inputs, **kwargs):
+        super().__init__(*inputs, **kwargs)
+        args = kwargs['args']
+        args.demonstration_type = "prompt_tuning"
+        self.pt_demonstration_input_layer = args.pt_demonstration_input_layer
+        self.prompt_embeddings = args.prompt_embeddings
+        self.compression_n = args.compression_n
+        self.latent_dropout = args.latent_dropout
+        self.demonstration_n = args.demonstration_n
+        self.pt_activation = args.pt_activation
+        self.pt_demonstration_output_layer = args.pt_demonstration_output_layer
+
     def _init_weights(self, module):
         std = self.config.initializer_range
         if isinstance(module, nn.Linear):
@@ -449,10 +461,30 @@ class LlamaPreTrainedModel(PreTrainedModel):
             module.weight.data.normal_(mean=0.0, std=std)
             if module.padding_idx is not None:
                 module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, nn.LayerNorm):
+            module.bias.data.zero_()
+            module.weight.data.fill_(1.0)
 
-    def _set_gradient_checkpointing(self, module, value=False):
+    def _set_gradient_checkpointing(self, module: nn.Module, value: bool = False):
         if isinstance(module, LlamaModel):
             module.gradient_checkpointing = value
+
+    def set_latent_projection(self, demonstration_type, demonstration_sample):
+        self.demonstration_n = demonstration_sample
+        self.latent_dropout = nn.Dropout(0.1)
+        self.config.demonstration_type = demonstration_type
+
+        if demonstration_type == "prompt_tuning":
+            self.compression_n = demonstration_sample
+            self.prompt_embeddings = nn.Embedding(demonstration_sample, self.embedding_dim)
+            nn.LayerNorm(self.embedding_dim, eps=1e-6)
+            self.prompt_emb.weight = self.prompt_emb
+            self.pt_demonstration_input_layer = nn.Linear(nn.Embedding.embedding_dim, nn.Embedding.embedding_dim * 4)
+            self.pt_activation = nn.GELU
+            self.pt_demonstration_output_layer = nn.Linear(nn.Embedding.embedding_dim * 4, nn.Embedding.embedding_dim)
+            nn.LayerNorm(nn.Embedding.embedding_dim, eps=self.config.layer_norm_eps)
+        else:
+            raise NotImplementedError
 
 
 LLAMA_INPUTS_DOCSTRING = r"""
@@ -529,6 +561,10 @@ class LlamaModel(LlamaPreTrainedModel):
         self.norm = LlamaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False
+
+        if hasattr(config, "projection_type"):
+            self.set_latent_projection(config.projection_type, config.latent_projection)
+
         self.post_init()
 
     def get_input_embeddings(self):
