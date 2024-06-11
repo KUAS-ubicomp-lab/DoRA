@@ -1,4 +1,4 @@
-# <B> DoRA </B>
+# <B> DoRA </B> <B> <I> (God's Gift) </B> </I>
 Dual-encoder demonstration Retrievers Architecture (DoRA) is a model to retrieve in-context demonstrations for out-of-domain (OOD) tasks.
 
 # Our Approach
