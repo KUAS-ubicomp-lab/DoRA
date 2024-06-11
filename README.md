@@ -6,6 +6,8 @@ We propose a novel fine-tuned demonstration retrievers architecture inspired by 
 - DepRoBERTa (deproberta-large-depression) as the initial retriever to limit the pool size of the available candidates for mining the right demonstrations.
 - WSW (Who-Says-What) as the scoring pre-trained language model (PLM) to score each candidate demonstration by perfectly reflecting its preferences using semantic similarity.
 
+![DoRA High-level Design drawio](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/fcab0da4-0616-4a86-9ac5-84455a52958a)
+
  # System Design 
 
 ![IJCNN 2024 Design - Enhanced Version drawio](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/1ad029fd-af14-463a-8c61-e209c773638e)
