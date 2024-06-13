@@ -12,7 +12,7 @@ async def dispatch_openai_requests(
         model: str,
 ):
     async_responses = [
-        openai.ChatCompletion.acreate(
+        await openai.ChatCompletion.create(
             model=model,
             messages=x,
             temperature=0
