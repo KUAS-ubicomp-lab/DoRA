@@ -1,9 +1,14 @@
 import logging
 
+import torch
+from h5py.h5t import cfg
 from omegaconf import DictConfig
+from transformers import Trainer, PreTrainedTokenizerBase
+
 from .biencoder import BiEncoder, BiEncoder_list_ranking_loss
 from .demonstrations_finder import find_demonstrations
 from .demonstrations_scorer import DemonstrationsScorer
+from .utils import training_args, biencoder_data, collators
 
 logger = logging.getLogger()
 
@@ -14,6 +19,44 @@ class RetrieverTrainer(object):
         self.cfg = cfg
         self.biencoder = BiEncoder(cfg)
         self.loss_type = cfg.loss_type
+        assert self.loss_type in ['list_ranking']
+        self.train_dataset = biencoder_data
+        self.training_args = training_args
+
+        self.trainer = Trainer(
+            model=self.biencoder.from_pretrained(cfg.model, cfg.model_config),
+            args=self.training_args,
+            train_dataset=self.train_dataset,
+            tokenizer=PreTrainedTokenizerBase,
+            data_collator=collators,
+            loss=self.loss_type
+        )
+
+    def get_data_iterator(
+            self,
+            batch_size: int,
+            is_train_set: bool,
+            shuffle=True,
+            shuffle_seed: int = 0,
+            offset: int = 0,
+            rank: int = 0,
+    ):
+        if is_train_set:
+            self.train_dataset = biencoder_data
+            self.training_args = training_args
+            self.trainer = Trainer(
+                model=self.biencoder.from_pretrained(cfg.model, cfg.model_config),
+            )
+            self.training_args.batch_size = batch_size
+            self.training_args.is_train_set = is_train_set
+            self.training_args.rank = rank
+            self.training_args.shuffle_seed = shuffle_seed
+            self.training_args.shuffle_seed = shuffle_seed
+            self.training_args.offset = offset
+            self.training_args.epochs = cfg.epochs
+            self.training_args.steps_per_epoch = cfg.steps_per_epoch
+            self.training_args.validation_steps = cfg.validation_steps
+            self.training_args.shuffle = shuffle
 
     def train_epoch(self,
                     epoch: int,
@@ -42,3 +85,9 @@ class RetrieverTrainer(object):
 
         epoch_loss = epoch_loss / epoch_batches if epoch_batches > 0 else 0
         logger.info("Average loss per epoch=%f", epoch_loss)
+
+    def train(self):
+        with torch.device('cuda:1'):
+            self.trainer.train()
+            self.trainer.save_model(self.training_args.output_dir)
+            self.trainer.tokenizer.save_pretrained(self.training_args.output_dir)
