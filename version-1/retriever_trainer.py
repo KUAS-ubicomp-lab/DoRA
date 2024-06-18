@@ -1,9 +1,10 @@
 import logging
 
+import hydra
 import torch
 from h5py.h5t import cfg
 from omegaconf import DictConfig
-from transformers import Trainer, PreTrainedTokenizerBase
+from transformers import Trainer, PreTrainedTokenizerBase, EvalPrediction
 
 from .biencoder import BiEncoder, BiEncoder_list_ranking_loss
 from .demonstrations_finder import find_demonstrations
@@ -29,7 +30,8 @@ class RetrieverTrainer(object):
             train_dataset=self.train_dataset,
             tokenizer=PreTrainedTokenizerBase,
             data_collator=collators,
-            loss=self.loss_type
+            loss=self.loss_type,
+            compute_metrics=self.compute_metrics,
         )
 
     def get_data_iterator(
@@ -58,10 +60,10 @@ class RetrieverTrainer(object):
             self.training_args.validation_steps = cfg.validation_steps
             self.training_args.shuffle = shuffle
 
-    def train_epoch(self,
-                    epoch: int,
-                    data_iterator
-                    ):
+    def train(self,
+              epoch: int,
+              data_iterator
+              ):
         cfg = self.cfg
         epoch_loss = 0
 
@@ -86,8 +88,19 @@ class RetrieverTrainer(object):
         epoch_loss = epoch_loss / epoch_batches if epoch_batches > 0 else 0
         logger.info("Average loss per epoch=%f", epoch_loss)
 
-    def train(self):
-        with torch.device('cuda:1'):
-            self.trainer.train()
-            self.trainer.save_model(self.training_args.output_dir)
-            self.trainer.tokenizer.save_pretrained(self.training_args.output_dir)
+    def compute_metrics(self, p: EvalPrediction):
+        predictions = self.trainer.predict(p, axis=1)
+        return predictions
+
+
+@hydra.main(config_path="configs", config_name="retriever_trainer")
+def main(cfg: DictConfig):
+    logger.info("Starting retriever training..." + cfg)
+    torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    trainer = RetrieverTrainer(cfg)
+    if cfg.mode == 'train':
+        trainer.train()
+
+
+if __name__ == '__main__':
+    main()
