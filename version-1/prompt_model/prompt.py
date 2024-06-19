@@ -10,6 +10,7 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import Trainer
 
 from .prompt_utils import decorate
+from ..demonstrations_finder import find_demonstrations
 from ..modeling_llms.modeling_deproberta import DepRobertaEmbeddings
 from ..modeling_llms.modeling_wsw import WSWEmbeddings
 from ..utils.data_processor import data_processor_list
@@ -218,15 +219,18 @@ class PromptKernel(Trainer):
 
         if TrainingArguments.demonstration_type == "prompt_tuning":
             self.demonstration_n = demonstration_sample
-            self.prompt_emb = nn.Embedding(demonstration_sample, nn.Embedding.embedding_dim)
-            nn.LayerNorm(nn.Embedding.embedding_dim, eps=self.config.layer_norm_eps)
-            self.prompt_emb.weight = self.prompt_emb
-            self.pt_demonstration_input_layer = nn.Linear(nn.Embedding.embedding_dim, nn.Embedding.embedding_dim * 4)
-            self.pt_activation = nn.GELU
-            self.pt_demonstration_output_layer = nn.Linear(nn.Embedding.embedding_dim * 4, nn.Embedding.embedding_dim)
-            nn.LayerNorm(nn.Embedding.embedding_dim, eps=self.config.layer_norm_eps)
+        elif TrainingArguments.demonstration_type == "instruction_prompt_tuning":
+            self.demonstration_n = find_demonstrations(demonstration_sample)
         else:
             raise NotImplementedError
+
+        self.prompt_emb = nn.Embedding(demonstration_sample, nn.Embedding.embedding_dim)
+        nn.LayerNorm(nn.Embedding.embedding_dim, eps=self.config.layer_norm_eps)
+        self.prompt_emb.weight = self.prompt_emb
+        self.pt_demonstration_input_layer = nn.Linear(nn.Embedding.embedding_dim, nn.Embedding.embedding_dim * 4)
+        self.pt_activation = nn.GELU
+        self.pt_demonstration_output_layer = nn.Linear(nn.Embedding.embedding_dim * 4, nn.Embedding.embedding_dim)
+        nn.LayerNorm(nn.Embedding.embedding_dim, eps=self.config.layer_norm_eps)
 
     def train_prompt(self, model=None, task=None, **kwargs):
         device = torch.device('cuda:1')
