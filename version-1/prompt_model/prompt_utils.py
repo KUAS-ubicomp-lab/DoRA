@@ -18,6 +18,28 @@ def length_of_prompt(prompt, max_tokens):
     return len(_TOKENIZER.tokenize(prompt)) + max_tokens
 
 
+def add_engine_argument(parser):
+    parser.add_argument('--engine',
+                        default='gpt-3',
+                        choices=['gpt-3', 'chat-gpt', 'gpt-4'])
+
+
+def specify_engine(args):
+    args.engine_name = args.engine
+
+
+def prompt_for_prediction(prompt_example, shots=0):
+    showcase_examples = [
+        "{}\nQ: {} True, False?\nA: {}\n".format(shot["premise"], shot["hypothesis"],
+                                                 shot["label"]) for shot in shots
+    ]
+    input_example = "{}\nQ: {} True, False, or Neither?\nA:".format(prompt_example["premise"],
+                                                                    prompt_example["hypothesis"])
+
+    prompt = "\n".join(showcase_examples + [input_example])
+    return prompt
+
+
 def fix(args, kwargs, sig):
     ba = sig.bind(*args, **kwargs)
     ba.apply_defaults()

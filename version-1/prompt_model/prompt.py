@@ -12,6 +12,8 @@ from transformers import Trainer
 from .prompt_utils import decorate
 from ..demonstrations_finder import find_demonstrations
 from ..modeling_llms.modeling_deproberta import DepRobertaEmbeddings
+from ..modeling_llms.modeling_llama import LlamaRotaryEmbedding
+from ..modeling_llms.modeling_opt import OPTLearnedPositionalEmbedding
 from ..modeling_llms.modeling_wsw import WSWEmbeddings
 from ..utils.data_processor import data_processor_list
 from ..utils.training_args import TrainingArguments
@@ -83,6 +85,15 @@ class PromptKernel(Trainer):
         elif 'wsw-' in model_name:
             model_type = 'wsw'
 
+        elif 'gpt-' in model_name:
+            model_type = 'gpt'
+
+        elif 'llama-' in model_name:
+            model_type = 'llama'
+
+        elif 'opt-' in model_name:
+            model_type = 'opt'
+
         # Load openprompt models
         if (not hasattr(self, 'args')) or args.backbone != model_name:
             plm, tokenizer, model_config, tokenizer_wrapper_class = load_plm(model_type, model_name)
@@ -146,6 +157,12 @@ class PromptKernel(Trainer):
 
         if 'wsw-' in args.backbone:
             prompt_emb = WSWEmbeddings(config=config)
+
+        if 'llama-' in args.backbone:
+            prompt_emb = LlamaRotaryEmbedding(config=config)
+
+        if 'opt-' in args.backbone:
+            prompt_emb = OPTLearnedPositionalEmbedding(config=config)
 
         return prompt_emb.prompt_embeddings.weight
 
