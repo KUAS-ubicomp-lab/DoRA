@@ -2,8 +2,11 @@ import argparse
 import os
 
 import openai
+from tqdm import tqdm
+from transformers import Trainer, trainer_pt_utils
 
 from prompt_utils import add_engine_argument, specify_engine, length_of_prompt
+from ..utils.data_processor import load_dataset
 from ..utils.openai_utils import dispatch_openai_api_requests
 
 openai.api_key = os.getenv("")
@@ -49,3 +52,29 @@ def in_context_prediction(prompt_example, shots, engine, length_test_only=False)
     prediction["prompt"] = prompt
     prediction["text"] = prediction["text"][len(prompt):]
     return prediction
+
+
+def evaluate(args):
+    train_set = load_dataset("data/eRisk18T2_train.csv")
+    dev_set = load_dataset("data/eRisk18T2_dev.csv")
+
+    train_set = train_set[args.train_slice:(args.train_slice + args.num_shot)]
+    dev_set = dev_set[:args.num_dev]
+
+    train_set = [x for x in train_set]
+    dev_set = [y for y in dev_set]
+    predictions = []
+    for x in tqdm(dev_set, total=len(dev_set), desc="Predicting"):
+        predictions.append(in_context_prediction(x,
+                                                 train_set,
+                                                 engine=args.engine,
+                                                 style=args.style,
+                                                 length_test_only=args.run_length_test))
+
+    if args.run_length_test:
+        print('MAX', max(predictions), 'COMP', _MAX_PROMPT_TOKENS)
+        return
+
+    metrics = Trainer.evaluate(eval_dataset=predictions)
+    trainer_pt_utils.save_metrics("evaluation", metrics)
+    return metrics
