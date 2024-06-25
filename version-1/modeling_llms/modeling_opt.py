@@ -521,7 +521,7 @@ class OPTPreTrainedModel(PreTrainedModel):
         self.latent_dropout = nn.Dropout(0.1)
         self.config.demonstration_type = demonstration_type
 
-        if demonstration_type == "prompt_tuning":
+        if demonstration_type == ["prompt_tuning", "instruction_prompt_tuning"]:
             self.compression_n = demonstration_sample
             self.prompt_embeddings = nn.Embedding(demonstration_sample, self.embedding_dim)
             nn.LayerNorm(self.embedding_dim, eps=1e-6)
