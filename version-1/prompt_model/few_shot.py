@@ -6,6 +6,7 @@ from tqdm import tqdm
 from transformers import Trainer, trainer_pt_utils
 
 from prompt_utils import add_engine_argument, specify_engine, length_of_prompt
+from ..demonstrations_finder import find_demonstrations
 from ..utils.data_processor import load_dataset
 from ..utils.openai_utils import dispatch_openai_api_requests
 
@@ -32,7 +33,9 @@ def in_context_prediction(prompt_example, shots, engine, length_test_only=False)
     ]
     input_example = "{}\nQ: {}\nA:".format(prompt_example["context"], prompt_example["utterance"])
 
-    prompt = "\n".join(showcase_examples + [input_example])
+    demonstrations = find_demonstrations(input_example)
+
+    prompt = "\n".join(showcase_examples + [input_example] + demonstrations)
 
     if length_test_only:
         prompt_length = length_of_prompt(prompt, _MAX_PROMPT_TOKENS)
@@ -76,5 +79,9 @@ def evaluate(args):
         return
 
     metrics = Trainer.evaluate(eval_dataset=predictions)
+    accuracy = metrics['accuracy']
+    f1 = metrics['f1']
+    print('Accuracy', accuracy)
+    print('F1', f1)
     trainer_pt_utils.save_metrics("evaluation", metrics)
     return metrics
