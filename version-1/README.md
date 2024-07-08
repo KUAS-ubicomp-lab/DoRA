@@ -22,7 +22,10 @@ Prompt manager integrates the components in-context demonstrations, prompt templ
 ```
 python prompt_model/train.py
 ```
-
+Experiments on few-shot and zero-shot prompting are replicated using the following code.
+```
+python prompt_model/few_shot.py
+```
 # Settings
 Python 3.8 and PyTorch 2.0 were used as the main programming language and machine learning framework, respectively . We separated MPC data into three categories based on the session length such as Len-5, Len-10, and Len-15 and used two different prompt lengths <I> (l) </I> such as 50, and 75. Hyper-parameters were used such as GELU activations, Adam optimizer, with learning rate 0.0005, warmup proportion 0.1, and frozen model hyper-parameters, θ1 and θ2 both True. Number of candidate demonstrations and ranked demonstrations were kept as 100 and 5, respectively.
 
@@ -39,3 +42,7 @@ To evaluate the performance of <I>DoRA</I> against previous state-of-the-art (SO
 WSW, BERT, RoBERTa, SA-BERT, MPC-BERT, ELECTRA, MDFN, and DisorBERT were used as pre-trained language models (PLMs). LLaMA 2-7B and OPT-7B were used as open-source LLMs and GPT-3, ChatGPT, and GPT-4 were adopted as closed-source LLMs to evaluate both DUC and DSI.
 
 # Metrics
+To evaluate the DUC task, we used R10@1, an enhanced version of recall. To evaluate the DSI task, we used accuracy and F1 score.
+
+# Results
+The performance comparison of demonstration retrieval using SOTA off-the-shelf demonstration retrievers and fine-tuned demonstration retrievers.
