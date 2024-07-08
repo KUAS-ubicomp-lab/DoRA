@@ -11,3 +11,11 @@ We propose a novel fine-tuned demonstration retrievers architecture inspired by 
  # System Design 
 
 ![IJCNN 2024 Design - Enhanced Version drawio](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/1ad029fd-af14-463a-8c61-e209c773638e)
+
+ # Experimental Setup
+Requirements:
+- Python 3.8
+- PyTorch 2.0
+- OpenAI
+
+Setting OpenAI API key: `export OPENAI_API_KEY=yourkey`
