@@ -46,3 +46,5 @@ To evaluate the DUC task, we used R10@1, an enhanced version of recall. To evalu
 
 # Results
 The performance comparison of demonstration retrieval using SOTA off-the-shelf demonstration retrievers and fine-tuned demonstration retrievers.
+
+![1](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/5abac11d-1dff-4bd0-b909-99e0d31ada3f)
