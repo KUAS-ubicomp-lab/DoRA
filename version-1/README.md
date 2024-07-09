@@ -48,3 +48,11 @@ To evaluate the DUC task, we used R10@1, an enhanced version of recall. To evalu
 The performance comparison of demonstration retrieval using SOTA off-the-shelf demonstration retrievers and fine-tuned demonstration retrievers.
 
 ![1](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/5abac11d-1dff-4bd0-b909-99e0d31ada3f)
+
+The results of LLM OOD transferability in terms of R10@1 for DUC using zero-shot, 2-shot, and 5-shot top-ranked demonstrations.
+
+![1](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/8b93972b-06aa-4591-a5cd-88727d02e13f)
+
+The results of LLM OOD transferability in terms of F1 score for DSI using zero-shot, 2-shot, and 5-shot top-ranked demonstrations.
+
+![2](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/06658302-5932-43fc-9e95-9c6d7f1df6fa)
