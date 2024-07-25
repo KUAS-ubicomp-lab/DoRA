@@ -33,14 +33,19 @@ def generate_explanations(utterance, in_context_demonstrations, engine, max_leng
     return explanations
 
 
-in_context_demonstrations = [
-    "She felt overwhelmed by the constant demands at work and home.",
-    "He was anxious about the upcoming exams and had trouble sleeping."
-]
-# Choose model: 'plm/Mistral-7B-Instruct-v0.2' or 'plm/gemma-7b-it'
-engine = 'plm/Mistral-7B-Instruct-v0.2'
-input_text = "I'm struggling to find motivation and everything seems pointless."
+def main():
+    in_context_demonstrations = [
+        "She felt overwhelmed by the constant demands at work and home.",
+        "He was anxious about the upcoming exams and had trouble sleeping."
+    ]
+    # Choose model: 'plm/Mistral-7B-Instruct-v0.2' or 'plm/gemma-7b-it'
+    engine = 'plm/Mistral-7B-Instruct-v0.2'
+    input_text = "I'm struggling to find motivation and everything seems pointless."
 
-explanations = generate_explanations(input_text, in_context_demonstrations, engine)
-for idx, explanation in enumerate(explanations, 1):
-    print(f"Explanation {idx}: {explanation}")
+    explanations = generate_explanations(input_text, in_context_demonstrations, engine)
+    for idx, explanation in enumerate(explanations, 1):
+        print(f"Explanation {idx}: {explanation}")
+
+
+if __name__ == '__main__':
+    main()
