@@ -1,4 +1,5 @@
 import torch
+from sentence_transformers import SentenceTransformer, util
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
@@ -33,6 +34,23 @@ def generate_explanations(utterance, in_context_demonstrations, engine, max_leng
     return explanations
 
 
+def rank_explanations(explanations, utterance, in_context_demonstrations, similarity_model):
+    context_embeddings = similarity_model.encode(in_context_demonstrations)
+    input_embedding = similarity_model.encode([utterance])
+    explanation_embeddings = similarity_model.encode(explanations)
+
+    similarities = []
+    for explanation_embedding in explanation_embeddings:
+        context_similarity = util.cos_sim(explanation_embedding, context_embeddings).mean().item()
+        input_similarity = util.cos_sim(explanation_embedding, input_embedding).item()
+        avg_similarity = (context_similarity + input_similarity) / 2
+        similarities.append(avg_similarity)
+
+    # Rank explanations based on average similarity
+    ranked_explanations = sorted(zip(explanations, similarities), key=lambda x: x[1], reverse=True)
+    return ranked_explanations
+
+
 def main():
     in_context_demonstrations = [
         "She felt overwhelmed by the constant demands at work and home.",
@@ -40,11 +58,13 @@ def main():
     ]
     # Choose model: 'plm/Mistral-7B-Instruct-v0.2' or 'plm/gemma-7b-it'
     engine = 'plm/Mistral-7B-Instruct-v0.2'
+    similarity_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
     input_text = "I'm struggling to find motivation and everything seems pointless."
 
     explanations = generate_explanations(input_text, in_context_demonstrations, engine)
-    for idx, explanation in enumerate(explanations, 1):
-        print(f"Explanation {idx}: {explanation}")
+    ranked_explanations = rank_explanations(explanations, input_text, in_context_demonstrations, similarity_model)
+    for idx, (explanation, score) in enumerate(ranked_explanations, 1):
+        print(f"Rank {idx} (Score: {score:.4f}): {explanation}")
 
 
 if __name__ == '__main__':
