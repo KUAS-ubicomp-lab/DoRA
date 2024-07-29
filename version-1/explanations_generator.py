@@ -45,7 +45,7 @@ def rank_explanations(explanations, utterance, in_context_demonstrations, dsm_cr
         context_similarity = util.cos_sim(explanation_embedding, context_embeddings).mean().item()
         input_similarity = util.cos_sim(explanation_embedding, input_embedding).item()
         dsm_similarity = util.cos_sim(explanation_embedding, dsm_embeddings).mean().item()
-        avg_similarity = (context_similarity + input_similarity + dsm_similarity) / 2
+        avg_similarity = (context_similarity + input_similarity + dsm_similarity) / 3
         similarities.append(avg_similarity)
 
     # Rank explanations based on average similarity
