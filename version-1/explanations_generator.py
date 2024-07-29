@@ -34,16 +34,18 @@ def generate_explanations(utterance, in_context_demonstrations, engine, max_leng
     return explanations
 
 
-def rank_explanations(explanations, utterance, in_context_demonstrations, similarity_model):
+def rank_explanations(explanations, utterance, in_context_demonstrations, dsm_criteria, similarity_model):
     context_embeddings = similarity_model.encode(in_context_demonstrations)
     input_embedding = similarity_model.encode([utterance])
+    dsm_embeddings = similarity_model.encode(dsm_criteria)
     explanation_embeddings = similarity_model.encode(explanations)
 
     similarities = []
     for explanation_embedding in explanation_embeddings:
         context_similarity = util.cos_sim(explanation_embedding, context_embeddings).mean().item()
         input_similarity = util.cos_sim(explanation_embedding, input_embedding).item()
-        avg_similarity = (context_similarity + input_similarity) / 2
+        dsm_similarity = util.cos_sim(explanation_embedding, dsm_embeddings).mean().item()
+        avg_similarity = (context_similarity + input_similarity + dsm_similarity) / 2
         similarities.append(avg_similarity)
 
     # Rank explanations based on average similarity
@@ -59,10 +61,19 @@ def main():
     # Choose model: 'plm/Mistral-7B-Instruct-v0.2' or 'plm/gemma-7b-it'
     engine = 'plm/Mistral-7B-Instruct-v0.2'
     similarity_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+    # DSM-5 criteria for depression
+    dsm_criteria = [
+        "Persistent sad, anxious, or 'empty' mood",
+        "Feelings of hopelessness or pessimism",
+        "Irritability",
+        "Feelings of guilt, worthlessness, or helplessness",
+        "Loss of interest or pleasure in hobbies and activities"
+    ]
     input_text = "I'm struggling to find motivation and everything seems pointless."
 
     explanations = generate_explanations(input_text, in_context_demonstrations, engine)
-    ranked_explanations = rank_explanations(explanations, input_text, in_context_demonstrations, similarity_model)
+    ranked_explanations = rank_explanations(explanations, input_text, in_context_demonstrations, dsm_criteria,
+                                            similarity_model)
     for idx, (explanation, score) in enumerate(ranked_explanations, 1):
         print(f"Rank {idx} (Score: {score:.4f}): {explanation}")
 
