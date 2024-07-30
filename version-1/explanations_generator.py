@@ -1,6 +1,11 @@
+import logging
+
+import numpy as np
 import torch
 from sentence_transformers import SentenceTransformer, util
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+logger = logging.getLogger(__name__)
 
 
 def load_model_and_tokenizer(engine):
@@ -34,22 +39,36 @@ def generate_explanations(utterance, in_context_demonstrations, engine, max_leng
     return explanations
 
 
-def rank_explanations(explanations, utterance, in_context_demonstrations, dsm_criteria, similarity_model):
+def rank_explanations(explanations, utterance, in_context_demonstrations, dsm_criteria,
+                      similarity_model, decay_factor=0.85):
     context_embeddings = similarity_model.encode(in_context_demonstrations)
     input_embedding = similarity_model.encode([utterance])
     dsm_embeddings = similarity_model.encode(dsm_criteria)
     explanation_embeddings = similarity_model.encode(explanations)
 
-    similarities = []
+    relevance_scores = []
     for explanation_embedding in explanation_embeddings:
         context_similarity = util.cos_sim(explanation_embedding, context_embeddings).mean().item()
         input_similarity = util.cos_sim(explanation_embedding, input_embedding).item()
         dsm_similarity = util.cos_sim(explanation_embedding, dsm_embeddings).mean().item()
-        avg_similarity = (context_similarity + input_similarity + dsm_similarity) / 3
-        similarities.append(avg_similarity)
+        relevance_score = (context_similarity + input_similarity + dsm_similarity) / 3
+        relevance_scores.append(relevance_score)
 
-    # Rank explanations based on average similarity
-    ranked_explanations = sorted(zip(explanations, similarities), key=lambda x: x[1], reverse=True)
+    # Normalize relevance scores to probabilities.
+    relevance_probabilities = np.array(relevance_scores) / np.sum(relevance_scores)
+
+    # Calculate ERR. Expected Reciprocal Rank (ERR) (https://dl.acm.org/doi/10.1145/1645953.1646033) is a
+    # probabilistic framework to rank the generated explanations.
+    err_scores = []
+    running_probability = 1.0
+    for i, probability in enumerate(relevance_probabilities):
+        err_score = running_probability * probability / (i + 1.0)
+        err_scores.append(err_score)
+        running_probability *= (1 - probability * decay_factor)
+
+    # Rank explanations based on ERR scores.
+    ranked_explanations = sorted(zip(explanations, err_scores), key=lambda x: x[1], reverse=True)
+    logger.info(f"Ranked Explanations {ranked_explanations}")
     return ranked_explanations
 
 
