@@ -40,7 +40,7 @@ def generate_explanations(utterance, in_context_demonstrations, engine, max_leng
 
 
 def rank_explanations(explanations, utterance, in_context_demonstrations, dsm_criteria,
-                      similarity_model, decay_factor=0.85):
+                      similarity_model, decay_factor=0.85, lambda_diversity=0.5):
     context_embeddings = similarity_model.encode(in_context_demonstrations)
     input_embedding = similarity_model.encode([utterance])
     dsm_embeddings = similarity_model.encode(dsm_criteria)
@@ -60,14 +60,37 @@ def rank_explanations(explanations, utterance, in_context_demonstrations, dsm_cr
     # Calculate ERR. Expected Reciprocal Rank (ERR) (https://dl.acm.org/doi/10.1145/1645953.1646033) is a
     # probabilistic framework to rank the generated explanations.
     err_scores = []
+    ranked_explanations = []
     running_probability = 1.0
     for i, probability in enumerate(relevance_probabilities):
         err_score = running_probability * probability / (i + 1.0)
         err_scores.append(err_score)
         running_probability *= (1 - probability * decay_factor)
 
-    # Rank explanations based on ERR scores.
-    ranked_explanations = sorted(zip(explanations, err_scores), key=lambda x: x[1], reverse=True)
+    if lambda_diversity is not None:
+        selected_indices = []
+        for _ in range(len(explanations)):
+            if not selected_indices:
+                # Select the first explanation based on highest ERR score.
+                selected_indices.append(np.argmax(err_scores))
+            else:
+                remaining_indices = list(set(range(len(explanations))) - set(selected_indices))
+                aggregated_scores = []
+                for i in remaining_indices:
+                    similarity_to_selected = util.cos_sim(explanation_embeddings[i],
+                                                          explanation_embeddings[selected_indices]).max().item()
+                    # Aggregated score combining relevance and diversity.
+                    aggregated_score = ((1 - lambda_diversity) * err_scores[i] -
+                                        lambda_diversity * similarity_to_selected)
+                    aggregated_scores.append(aggregated_score)
+                # Select the explanation with the highest relevance and diversity.
+                selected_indices.append(remaining_indices[np.argmax(aggregated_scores)])
+        # Rank explanations based on relevance and diversity.
+        ranked_explanations = [(explanations[i], err_scores[i]) for i in selected_indices][:2]
+
+    if not ranked_explanations:
+        # Rank explanations based on relevance.
+        ranked_explanations = sorted(zip(explanations, err_scores), key=lambda x: x[1], reverse=True)[:2]
     logger.info(f"Ranked Explanations {ranked_explanations}")
     return ranked_explanations
 
