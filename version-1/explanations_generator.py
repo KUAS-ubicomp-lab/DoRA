@@ -20,11 +20,14 @@ def generate_explanations(utterance, in_context_demonstrations, engine, max_leng
     model, tokenizer, device = load_model_and_tokenizer(engine)
     # The prompt is adjusted to emphasize the depressive elements of both the in-context demonstrations and
     # the input utterance. This helps guide the model to focus on recognizing and explaining depressive content.
-    prompt = "Below are examples with depressive elements and their explanations:\n"
+    prompt = "Below are examples with depressive elements and their detailed explanations:\n"
     for example in in_context_demonstrations:
-        prompt += f"Example: {example}\nExplanation: This example shows signs of depression because...\n"
-    prompt += (f"\nAnalyze the following text for depressive elements and provide explanations:\nExample: {utterance}"
-               f"\nExplanation:")
+        prompt += f"Example: {example}\nExplanation: This example shows signs of depression because...\n\n"
+    prompt += (
+        "Now, analyze the following text for depressive elements and provide a detailed explanation "
+        "highlighting why the text indicates potential signs of depression based on DSM-5 criteria:\n\n"
+        f"Example: {utterance}\nExplanation:"
+    )
 
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
     with torch.no_grad():
