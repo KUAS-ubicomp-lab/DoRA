@@ -11,6 +11,7 @@ from transformers import Trainer
 
 from .prompt_utils import decorate
 from ..demonstrations_finder import find_demonstrations
+from ..ex_dora import explanations_generator
 from ..modeling_llms.modeling_deproberta import DepRobertaEmbeddings
 from ..modeling_llms.modeling_llama import LlamaForSequenceClassification
 from ..modeling_llms.modeling_opt import OPTForSequenceClassification
@@ -26,6 +27,7 @@ class PromptKernel(Trainer):
         args.demonstration_type = "prompt_tuning"
         self.prompt_emb = prompt_emb
         self.demonstration_n = args.demonstration_sample
+        self.free_text_explanations = args.free_text_explanations
         self.latent_dropout = args.latent_dropout
         self.out_dir_root = args.output_dir
         self.pt_demonstration_input_layer = args.pt_demonstration_input_layer
@@ -230,11 +232,16 @@ class PromptKernel(Trainer):
         self.demonstration_n = demonstration_sample
         self.latent_dropout = nn.Dropout(0.1)
         self.config.demonstration_type = demonstration_type
+        self.free_text_explanations = None
 
         if TrainingArguments.demonstration_type == "prompt_tuning":
             self.demonstration_n = demonstration_sample
         elif TrainingArguments.demonstration_type == "instruction_prompt_tuning":
             self.demonstration_n = find_demonstrations(demonstration_sample)
+            if hasattr(explanations_generator):
+                explanations = explanations_generator.generate_explanations(demonstration_sample)
+                self.free_text_explanations = explanations_generator.rank_explanations(explanations,
+                                                                                       demonstration_sample)
         else:
             raise NotImplementedError
 
