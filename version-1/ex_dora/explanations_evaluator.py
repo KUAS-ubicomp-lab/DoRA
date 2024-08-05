@@ -3,8 +3,6 @@ import os
 import pandas as pd
 from rouge_score import rouge_scorer
 
-import explanations_generator
-
 
 def average_scores(scores):
     avg_score = sum(scores) / len(scores)

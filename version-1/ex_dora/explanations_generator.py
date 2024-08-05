@@ -6,6 +6,8 @@ import torch
 from sentence_transformers import SentenceTransformer, util
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from explanations_evaluator import rouge_score
+
 logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -97,6 +99,10 @@ def rank_explanations(explanations, utterance, in_context_demonstrations, dsm_cr
         # Rank explanations based on relevance.
         ranked_explanations = sorted(zip(explanations, err_scores), key=lambda x: x[1], reverse=True)[:2]
     logger.info(f"Ranked Explanations {ranked_explanations}")
+
+    # Evaluate the ranked explanations using Rouge score.
+    logger.info(f"Rouge Score {rouge_score(ranked_explanations)}")
+
     return ranked_explanations
 
 
