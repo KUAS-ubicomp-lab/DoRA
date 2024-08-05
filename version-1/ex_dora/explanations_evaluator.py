@@ -1,7 +1,10 @@
 import os
 
 import pandas as pd
+import torch
 from rouge_score import rouge_scorer
+
+from bart_scorer import BARTScorer
 
 
 def average_scores(scores):
@@ -39,3 +42,17 @@ def rouge_score(generated_texts):
     avg_rougeL = average_scores([score['rougeL'].fmeasure for score in rouge_scores])
     return avg_rouge1, avg_rougeL
 
+
+def BART_score(generated_texts):
+    scorer = BARTScorer(device='cuda' if torch.cuda.is_available() else 'cpu')
+    bart_scores = []
+    reference_texts = load_expert_data()
+
+    for gen_text, ref_text in zip(generated_texts, reference_texts):
+        score = scorer.score(gen_text, ref_text)
+        bart_scores.append(score)
+    print("BARTScores:", bart_scores)
+
+    # Average BART Scores
+    avg_bart_score = average_scores(bart_scores)
+    return avg_bart_score
