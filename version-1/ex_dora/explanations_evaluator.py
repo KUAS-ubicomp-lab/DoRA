@@ -2,6 +2,7 @@ import os
 
 import pandas as pd
 import torch
+from bert_score import BERTScorer
 from rouge_score import rouge_scorer
 
 from bart_scorer import BARTScorer
@@ -56,3 +57,18 @@ def BART_score(generated_texts):
     # Average BART Scores
     avg_bart_score = average_scores(bart_scores)
     return avg_bart_score
+
+
+def BERT_score(generated_texts):
+    scorer = BERTScorer(device='cuda' if torch.cuda.is_available() else 'cpu')
+    bert_scores = []
+    reference_texts = load_expert_data()
+
+    for gen_text, ref_text in zip(generated_texts, reference_texts):
+        score = scorer.score(gen_text, ref_text)
+        bert_scores.append(score)
+    print("BERTScores:", bert_scores)
+
+    # Average BERT Scores
+    avg_bert_score = average_scores(bert_scores)
+    return avg_bert_score
