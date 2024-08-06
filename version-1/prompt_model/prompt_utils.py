@@ -92,3 +92,14 @@ def decorate(func, caller, extras=(), kwsyntax=False):
         pass
     fun.__wrapped__ = __wrapped__  # support nested wrap
     return fun
+
+
+def dsm_criteria():
+    dsm_criteria = [
+        "Persistent sad, anxious, or 'empty' mood",
+        "Feelings of hopelessness or pessimism",
+        "Irritability",
+        "Feelings of guilt, worthlessness, or helplessness",
+        "Loss of interest or pleasure in hobbies and activities"
+    ]
+    return dsm_criteria

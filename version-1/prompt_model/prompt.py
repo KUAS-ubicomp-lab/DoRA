@@ -6,10 +6,11 @@ import torch.nn as nn
 from openprompt import PromptForClassification, PromptDataLoader
 from openprompt.plms import load_plm
 from openprompt.prompts import SoftTemplate, SoftVerbalizer
+from sentence_transformers import SentenceTransformer
 from torch.utils.data import DataLoader, Dataset
 from transformers import Trainer
 
-from .prompt_utils import decorate
+from .prompt_utils import decorate, dsm_criteria
 from ..demonstrations_finder import find_demonstrations
 from ..ex_dora import explanations_generator
 from ..modeling_llms.modeling_deproberta import DepRobertaEmbeddings
@@ -238,10 +239,18 @@ class PromptKernel(Trainer):
             self.demonstration_n = demonstration_sample
         elif TrainingArguments.demonstration_type == "instruction_prompt_tuning":
             self.demonstration_n = find_demonstrations(demonstration_sample)
-            if hasattr(explanations_generator):
-                explanations = explanations_generator.generate_explanations(demonstration_sample)
-                self.free_text_explanations = explanations_generator.rank_explanations(explanations,
-                                                                                       demonstration_sample)
+            if hasattr(self, explanations_generator):
+                similarity_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+                explanations = explanations_generator.generate_explanations(
+                    utterance=self.prompt_emb,
+                    in_context_demonstrations=demonstration_sample,
+                    engine=self.plm)
+                self.free_text_explanations = explanations_generator.rank_explanations(
+                    explanations=explanations,
+                    utterance=self.prompt_emb,
+                    in_context_demonstrations=demonstration_sample,
+                    dsm_criteria=dsm_criteria,
+                    similarity_model=similarity_model)
         else:
             raise NotImplementedError
 
