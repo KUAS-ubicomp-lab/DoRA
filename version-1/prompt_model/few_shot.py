@@ -8,7 +8,7 @@ from transformers import Trainer, trainer_pt_utils
 
 from prompt_utils import add_engine_argument, specify_engine, length_of_prompt, dsm_criteria
 from ..demonstrations_finder import find_demonstrations
-from ..ex_dora import explanations_generator
+from ..ex_dora import explanations_generator, explanations_evaluator
 from ..utils.data_processor import load_dataset
 from ..utils.openai_utils import dispatch_openai_api_requests
 
@@ -39,19 +39,8 @@ def in_context_prediction(prompt_example, shots, engine, length_test_only=False)
 
     free_text_explanations = []
     if hasattr(explanations_generator):
-        explanations = explanations_generator.generate_explanations(
-            utterance=input_example,
-            demonstrations=demonstrations,
-            engine=engine
-        )
-        similarity_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-        free_text_explanations = explanations_generator.rank_explanations(
-            explanations=explanations,
-            utterance=input_example,
-            in_context_demonstrations=demonstrations,
-            dsm_criteria=dsm_criteria,
-            similarity_model=similarity_model
-        )
+        ranked_explanations = explanation_generation(demonstrations, engine, input_example)
+        free_text_explanations = [i[0] for i in ranked_explanations]
 
     prompt = "\n".join(showcase_examples + [input_example] + demonstrations + free_text_explanations)
 
@@ -75,6 +64,23 @@ def in_context_prediction(prompt_example, shots, engine, length_test_only=False)
     return prediction
 
 
+def explanation_generation(demonstrations, engine, input_example):
+    explanations = explanations_generator.generate_explanations(
+        utterance=input_example,
+        demonstrations=demonstrations,
+        engine=engine
+    )
+    similarity_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+    ranked_explanations = explanations_generator.rank_explanations(
+        explanations=explanations,
+        utterance=input_example,
+        in_context_demonstrations=demonstrations,
+        dsm_criteria=dsm_criteria,
+        similarity_model=similarity_model
+    )
+    return ranked_explanations
+
+
 def evaluate(args):
     train_set = load_dataset("data/eRisk18T2_train.csv")
     dev_set = load_dataset("data/eRisk18T2_dev.csv")
@@ -91,6 +97,19 @@ def evaluate(args):
                                                  engine=args.engine,
                                                  style=args.style,
                                                  length_test_only=args.run_length_test))
+
+        if hasattr(explanations_evaluator):
+            demonstrations = find_demonstrations(x)
+            explanations_evaluator.BART_score(explanation_generation(
+                demonstrations=demonstrations,
+                engine=args.engine,
+                input_example=x
+            ))
+            explanations_evaluator.rouge_score(explanation_generation(
+                demonstrations=demonstrations,
+                engine=args.engine,
+                input_example=x
+            ))
 
     if args.run_length_test:
         print('MAX', max(predictions), 'COMP', _MAX_PROMPT_TOKENS)
