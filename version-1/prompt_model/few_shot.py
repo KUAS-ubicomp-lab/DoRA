@@ -66,14 +66,14 @@ def in_context_prediction(prompt_example, shots, engine, length_test_only=False)
 
 def explanation_generation(demonstrations, engine, input_example):
     explanations = explanations_generator.generate_explanations(
-        utterance=input_example,
+        utterances=input_example,
         demonstrations=demonstrations,
         engine=engine
     )
     similarity_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
     ranked_explanations = explanations_generator.rank_explanations(
         explanations=explanations,
-        utterance=input_example,
+        utterances=input_example,
         in_context_demonstrations=demonstrations,
         dsm_criteria=dsm_criteria,
         similarity_model=similarity_model

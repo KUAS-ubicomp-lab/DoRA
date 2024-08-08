@@ -242,12 +242,12 @@ class PromptKernel(Trainer):
             if hasattr(self, explanations_generator):
                 similarity_model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
                 explanations = explanations_generator.generate_explanations(
-                    utterance=self.prompt_emb,
+                    utterances=self.prompt_emb,
                     in_context_demonstrations=demonstration_sample,
                     engine=self.plm)
                 self.free_text_explanations = explanations_generator.rank_explanations(
                     explanations=explanations,
-                    utterance=self.prompt_emb,
+                    utterances=self.prompt_emb,
                     in_context_demonstrations=demonstration_sample,
                     dsm_criteria=dsm_criteria,
                     similarity_model=similarity_model)

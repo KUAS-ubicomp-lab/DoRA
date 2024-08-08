@@ -20,7 +20,7 @@ def load_model_and_tokenizer(engine):
     return model, tokenizer, device
 
 
-def generate_explanations(utterance, in_context_demonstrations, engine, max_length=200, num_return_sequences=3):
+def generate_explanations(utterances, in_context_demonstrations, engine, max_length=200, num_return_sequences=3):
     model, tokenizer, device = load_model_and_tokenizer(engine)
     # The prompt is adjusted to emphasize the depressive elements of both the in-context demonstrations and
     # the input utterance. This helps guide the model to focus on recognizing and explaining depressive content.
@@ -28,10 +28,12 @@ def generate_explanations(utterance, in_context_demonstrations, engine, max_leng
     for example in in_context_demonstrations:
         prompt += f"Example: {example}\nExplanation: This example shows signs of depression because...\n\n"
     prompt += (
-        "Now, analyze the following text for depressive elements and provide a detailed explanation "
+        "Now, analyze the following conversation for depressive elements and provide a detailed explanation "
         "highlighting why the text indicates potential signs of depression based on DSM-5 criteria:\n\n"
-        f"Example: {utterance}\nExplanation:"
     )
+    for idx, statement in enumerate(utterances, 1):
+        prompt += f"Statement {idx}: {statement}\n"
+    prompt += "Explanation:"
 
     input_ids = tokenizer(prompt, return_tensors="pt").input_ids.to(device)
     with torch.no_grad():
@@ -46,10 +48,10 @@ def generate_explanations(utterance, in_context_demonstrations, engine, max_leng
     return explanations
 
 
-def rank_explanations(explanations, utterance, in_context_demonstrations, dsm_criteria,
+def rank_explanations(explanations, utterances, in_context_demonstrations, dsm_criteria,
                       similarity_model, decay_factor=0.85, lambda_diversity=0.5):
     context_embeddings = similarity_model.encode(in_context_demonstrations)
-    input_embedding = similarity_model.encode([utterance])
+    input_embedding = similarity_model.encode([utterances])
     dsm_embeddings = similarity_model.encode(dsm_criteria)
     explanation_embeddings = similarity_model.encode(explanations)
 
@@ -128,10 +130,13 @@ def main():
         "Feelings of guilt, worthlessness, or helplessness",
         "Loss of interest or pleasure in hobbies and activities"
     ]
-    input_text = "I'm struggling to find motivation and everything seems pointless."
+    input_texts = [
+        "I'm struggling to find motivation and everything seems pointless.",
+        "I don't feel like doing anything anymore, even the things I used to love."
+    ]
 
-    explanations = generate_explanations(input_text, in_context_demonstrations, engine)
-    ranked_explanations = rank_explanations(explanations, input_text, in_context_demonstrations, dsm_criteria,
+    explanations = generate_explanations(input_texts, in_context_demonstrations, engine)
+    ranked_explanations = rank_explanations(explanations, input_texts, in_context_demonstrations, dsm_criteria,
                                             similarity_model)
     for idx, (explanation, score) in enumerate(ranked_explanations, 1):
         print(f"Rank {idx} (Score: {score:.4f}): {explanation}")
