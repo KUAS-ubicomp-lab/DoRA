@@ -51,10 +51,10 @@ class CustomRankingLoss(nn.Module):
             running_prob *= (1 - prob * self.decay_factor)
 
         err_scores, selected_indices = explanations_generator.relevance_diversity_scoring(
-            decay_factor=self.decay_factor,
+            relevance_probabilities=relevance_probabilities,
             explanation_embeddings=explanation_embeddings,
-            lambda_diversity=self.lambda_diversity,
-            relevance_probabilities=relevance_probabilities
+            decay_factor=self.decay_factor,
+            lambda_diversity=self.lambda_diversity
         )
 
         # Calculate combined ERR and MMR loss

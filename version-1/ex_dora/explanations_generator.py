@@ -66,8 +66,12 @@ def rank_explanations(explanations, utterances, in_context_demonstrations, dsm_c
     # Normalize relevance scores to probabilities.
     relevance_probabilities = np.array(relevance_scores) / np.sum(relevance_scores)
 
-    err_scores, selected_indices = relevance_diversity_scoring(decay_factor, explanation_embeddings,
-                                                               lambda_diversity, relevance_probabilities)
+    err_scores, selected_indices = relevance_diversity_scoring(
+        relevance_probabilities=relevance_probabilities,
+        explanation_embeddings=explanation_embeddings,
+        decay_factor=decay_factor,
+        lambda_diversity=lambda_diversity
+    )
     # Rank explanations based on relevance and diversity.
     ranked_explanations = [(explanations[i], err_scores[i]) for i in selected_indices][:2]
 
@@ -88,7 +92,7 @@ def rank_explanations(explanations, utterances, in_context_demonstrations, dsm_c
     return ranked_explanations
 
 
-def relevance_diversity_scoring(decay_factor, explanation_embeddings, lambda_diversity, relevance_probabilities):
+def relevance_diversity_scoring(relevance_probabilities, explanation_embeddings, decay_factor, lambda_diversity):
     # Calculate ERR. Expected Reciprocal Rank (ERR) (https://dl.acm.org/doi/10.1145/1645953.1646033) is a
     # probabilistic framework to rank the generated explanations.
     err_scores = []
