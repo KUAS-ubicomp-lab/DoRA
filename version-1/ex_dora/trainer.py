@@ -132,18 +132,26 @@ def train_model(ranking_model, train_data, context_embeddings, input_embeddings,
         print(f'Epoch {epoch + 1}, Loss: {avg_loss:.4f}')
 
 
-def rank_explanations(model, explanations, input_texts, context_examples, dsm_criteria):
+def rank_explanations(model, explanations, input_texts, context_examples, dsm_criteria, top_k):
     context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings = extract_features(input_texts,
                                                                                                     context_examples,
                                                                                                     explanations,
                                                                                                     dsm_criteria)
-    input_features = torch.cat((context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings), dim=1)
-    input_features = input_features.cuda()
+    context_embeddings = context_embeddings.cpu().numpy()
+    input_embeddings = input_embeddings.cpu().numpy()
+    dsm_embeddings = dsm_embeddings.cpu().numpy()
+    explanation_embeddings = explanation_embeddings.cpu().numpy()
+
+    input_features = np.concatenate((context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings),
+                                    axis=1)
+    input_features = torch.tensor(input_features, dtype=torch.float32).cuda()
+
     model.eval()
     with torch.no_grad():
         relevance_scores = model(input_features).cpu().numpy()
     relevance_scores = relevance_scores.flatten()
-    ranked_explanations = [explanations[i] for i in np.argsort(-relevance_scores)]
+    ranked_indices = np.argsort(-relevance_scores)[:top_k]
+    ranked_explanations = [explanations[i] for i in ranked_indices]
     return ranked_explanations
 
 
@@ -184,7 +192,7 @@ def main():
                 explanation_embeddings, epochs=10, learning_rate=0.001)
 
     ranked_explanations = rank_explanations(ranking_model, explanations, input_texts, in_context_demonstrations,
-                                            dsm_criteria)
+                                            dsm_criteria, top_k=2)
     for idx, explanation in enumerate(ranked_explanations, 1):
         print(f"Rank {idx}: {explanation}")
 
