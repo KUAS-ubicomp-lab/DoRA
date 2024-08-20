@@ -109,7 +109,7 @@ def relevance_diversity_scoring(relevance_probabilities, explanation_embeddings,
                 # Select the first explanation based on highest ERR score.
                 selected_indices.append(np.argmax(err_scores))
             else:
-                remaining_indices = list(set(range(len(relevance_probabilities))) - set(selected_indices))
+                remaining_indices = list(set(range(len(explanation_embeddings))) - set(selected_indices))
                 aggregated_scores = []
                 for i in remaining_indices:
                     similarity_to_selected = util.cos_sim(explanation_embeddings[i],
@@ -118,8 +118,9 @@ def relevance_diversity_scoring(relevance_probabilities, explanation_embeddings,
                     aggregated_score = ((1 - lambda_diversity) * err_scores[i] -
                                         lambda_diversity * similarity_to_selected)
                     aggregated_scores.append(aggregated_score)
-                # Select the explanation with the highest relevance and diversity.
-                selected_indices.append(remaining_indices[np.argmax(aggregated_scores)])
+                if aggregated_scores:
+                    # Select the explanation with the highest relevance and diversity.
+                    selected_indices.append(remaining_indices[np.argmax(aggregated_scores)])
     else:
         selected_indices = [0]
     return err_scores, selected_indices

@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sentence_transformers import SentenceTransformer, util
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, TensorDataset
 
 import explanations_generator
 
@@ -18,12 +18,7 @@ def extract_features(input_texts, in_context_demonstrations, explanations, dsm_c
     context_embeddings = feature_extractor.encode(in_context_demonstrations, convert_to_tensor=True)
     input_embeddings = feature_extractor.encode(input_texts, convert_to_tensor=True)
     dsm_embeddings = feature_extractor.encode(dsm_criteria, convert_to_tensor=True)
-    explanation_embeddings = feature_extractor.encode(explanations, convert_to_tensor=True)
-
-    context_embeddings = context_embeddings.mean(dim=0, keepdim=True)
-    input_embeddings = input_embeddings.mean(dim=0, keepdim=True)
-    dsm_embeddings = dsm_embeddings.mean(dim=0, keepdim=True)
-    explanation_embeddings = explanation_embeddings.mean(dim=0, keepdim=True)
+    explanation_embeddings = [feature_extractor.encode([explanation], convert_to_tensor=True) for explanation in explanations]
 
     return context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings
 
@@ -44,32 +39,18 @@ class ExplanationRankingModel(nn.Module):
 
 class ExplanationRankingDataset(Dataset):
     def __init__(self, context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings, relevance_scores):
-        self.context_embeddings = torch.tensor(context_embeddings, dtype=torch.float32)
-        self.input_embeddings = torch.tensor(input_embeddings, dtype=torch.float32)
-        self.dsm_embeddings = torch.tensor(dsm_embeddings, dtype=torch.float32)
-        self.explanation_embeddings = torch.tensor(explanation_embeddings, dtype=torch.float32)
-        self.relevance_scores = torch.tensor(relevance_scores, dtype=torch.float32)
-
-        print("Context Embeddings Shape:", self.context_embeddings.shape)
-        print("Input Embeddings Shape:", self.input_embeddings.shape)
-        print("DSM Embeddings Shape:", self.dsm_embeddings.shape)
-        print("Explanation Embeddings Shape:", self.explanation_embeddings.shape)
+        self.input_features = prepare_input_features(context_embeddings, input_embeddings, dsm_embeddings,
+                                                     explanation_embeddings)
+        relevance_scores = np.array(relevance_scores)
+        self.target_scores = np.repeat(relevance_scores, len(explanation_embeddings), axis=0)
+        self.input_features = torch.tensor(self.input_features, dtype=torch.float32).cuda()
+        self.target_scores = torch.tensor(self.target_scores, dtype=torch.float32).unsqueeze(1).cuda()
 
     def __len__(self):
-        return len(self.relevance_scores)
+        return len(self.input_features)
 
     def __getitem__(self, idx):
-        # Ensure the idx exists within each embedding set
-        context_emb = self.context_embeddings[idx % len(self.context_embeddings)]
-        input_emb = self.input_embeddings[idx % len(self.input_embeddings)]
-        dsm_emb = self.dsm_embeddings[idx % len(self.dsm_embeddings)]
-        explanation_emb = self.explanation_embeddings[idx % len(self.explanation_embeddings)]
-
-        # Flatten and concatenate all embeddings
-        input_feature = torch.cat((context_emb, input_emb, dsm_emb, explanation_emb), dim=-1)
-        target_score = self.relevance_scores[idx]
-
-        return input_feature, target_score
+        return self.input_features[idx], self.target_scores[idx]
 
 
 class CustomRankingLoss(nn.Module):
@@ -84,6 +65,10 @@ class CustomRankingLoss(nn.Module):
 
         # Normalize relevance scores to probabilities
         relevance_probabilities = torch.softmax(relevance_scores, dim=0).detach().cpu().numpy()
+
+        if isinstance(explanation_embeddings, list):
+            explanation_embeddings = torch.stack(explanation_embeddings, dim=0).cuda()
+            explanation_embeddings = explanation_embeddings.reshape(-1, explanation_embeddings.shape[-1])
 
         err_scores, selected_indices = explanations_generator.relevance_diversity_scoring(
             relevance_probabilities=relevance_probabilities,
@@ -107,6 +92,45 @@ def prepare_data(context_embeddings, input_embeddings, dsm_embeddings, explanati
                                         relevance_scores)
     dataloader = DataLoader(dataset, batch_size=16, shuffle=True)
     return dataloader
+
+
+def prepare_input_features(context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings):
+    context_embeddings_cpu = context_embeddings.cpu().numpy()
+    input_embeddings_cpu = input_embeddings.cpu().numpy()
+    dsm_embeddings_cpu = dsm_embeddings.cpu().numpy()
+    explanation_embeddings_cpu = np.array([embed.cpu().numpy() for embed in explanation_embeddings])
+
+    # Ensure all embeddings have the same number of samples
+    max_rows = max(
+        context_embeddings_cpu.shape[0],
+        input_embeddings_cpu.shape[0],
+        dsm_embeddings_cpu.shape[0],
+        explanation_embeddings_cpu.shape[0]
+    )
+
+    def repeat_to_match(array, target_rows):
+        current_rows = array.shape[0]
+        if current_rows < target_rows:
+            repeats = target_rows // current_rows
+            remainder = target_rows % current_rows
+            array = np.repeat(array, repeats, axis=0)
+            if remainder > 0:
+                array = np.concatenate([array, array[:remainder]], axis=0)
+        return array
+
+    context_embeddings_cpu = repeat_to_match(context_embeddings_cpu, max_rows)
+    input_embeddings_cpu = repeat_to_match(input_embeddings_cpu, max_rows)
+    dsm_embeddings_cpu = repeat_to_match(dsm_embeddings_cpu, max_rows)
+    explanation_embeddings_cpu = repeat_to_match(explanation_embeddings_cpu, max_rows)
+
+    # Flatten the explanation embeddings array
+    explanation_embeddings_cpu = explanation_embeddings_cpu.reshape(-1, explanation_embeddings_cpu.shape[-1])
+
+    input_features = np.concatenate(
+        [context_embeddings_cpu, input_embeddings_cpu, dsm_embeddings_cpu, explanation_embeddings_cpu],
+        axis=-1
+    )
+    return input_features
 
 
 def train_model(ranking_model, train_data, context_embeddings, input_embeddings, dsm_embeddings,
@@ -140,11 +164,15 @@ def rank_explanations(model, explanations, input_texts, context_examples, dsm_cr
     context_embeddings = context_embeddings.cpu().numpy()
     input_embeddings = input_embeddings.cpu().numpy()
     dsm_embeddings = dsm_embeddings.cpu().numpy()
-    explanation_embeddings = explanation_embeddings.cpu().numpy()
+    explanation_embeddings = [embedding.cpu().numpy() for embedding in explanation_embeddings]
 
-    input_features = np.concatenate((context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings),
-                                    axis=1)
-    input_features = torch.tensor(input_features, dtype=torch.float32).cuda()
+    input_features_list = []
+    for explanation_embedding in explanation_embeddings:
+        input_features = np.concatenate((context_embeddings, input_embeddings, dsm_embeddings, explanation_embedding),
+                                        axis=1)
+        input_features_list.append(input_features)
+
+    input_features = torch.tensor(np.vstack(input_features_list), dtype=torch.float32).cuda()
 
     model.eval()
     with torch.no_grad():
@@ -182,10 +210,18 @@ def main():
         explanations=explanations,
         dsm_criteria=dsm_criteria)
 
+    input_features = prepare_input_features(
+        context_embeddings=context_embeddings,
+        input_embeddings=input_embeddings,
+        dsm_embeddings=dsm_embeddings,
+        explanation_embeddings=explanation_embeddings)
+
+    # Convert back to torch tensor and move to GPU
+    input_features_tensor = torch.tensor(input_features, dtype=torch.float32).cuda()
+    input_dim = input_features_tensor.shape[-1]
+
     train_data = prepare_data(context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings,
                               relevance_scores)
-    input_dim = (context_embeddings.shape[-1] + input_embeddings.shape[-1] + dsm_embeddings.shape[-1]
-                 + explanation_embeddings.shape[-1])
     ranking_model = ExplanationRankingModel(input_dim)
 
     train_model(ranking_model, train_data, context_embeddings, input_embeddings, dsm_embeddings,
