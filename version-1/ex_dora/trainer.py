@@ -133,6 +133,28 @@ def prepare_input_features(context_embeddings, input_embeddings, dsm_embeddings,
     return input_features
 
 
+def train(dsm_criteria, explanations, in_context_demonstrations, input_texts, relevance_scores):
+    context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings = extract_features(
+        input_texts=input_texts,
+        in_context_demonstrations=in_context_demonstrations,
+        explanations=explanations,
+        dsm_criteria=dsm_criteria)
+    input_features = prepare_input_features(
+        context_embeddings=context_embeddings,
+        input_embeddings=input_embeddings,
+        dsm_embeddings=dsm_embeddings,
+        explanation_embeddings=explanation_embeddings)
+    # Convert back to torch tensor and move to GPU
+    input_features_tensor = torch.tensor(input_features, dtype=torch.float32).cuda()
+    input_dim = input_features_tensor.shape[-1]
+    train_data = prepare_data(context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings,
+                              relevance_scores)
+    ranking_model = ExplanationRankingModel(input_dim)
+    train_model(ranking_model, train_data, context_embeddings, input_embeddings, dsm_embeddings,
+                explanation_embeddings, epochs=30, learning_rate=0.001)
+    return ranking_model
+
+
 def train_model(ranking_model, train_data, context_embeddings, input_embeddings, dsm_embeddings,
                 explanation_embeddings, epochs, learning_rate):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -203,28 +225,7 @@ def main():
     explanations = explanations_generator.generate_explanations(input_texts, in_context_demonstrations, engine)
     relevance_scores = [0.9, 0.7, 0.85]
 
-    context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings = extract_features(
-        input_texts=input_texts,
-        in_context_demonstrations=in_context_demonstrations,
-        explanations=explanations,
-        dsm_criteria=dsm_criteria)
-
-    input_features = prepare_input_features(
-        context_embeddings=context_embeddings,
-        input_embeddings=input_embeddings,
-        dsm_embeddings=dsm_embeddings,
-        explanation_embeddings=explanation_embeddings)
-
-    # Convert back to torch tensor and move to GPU
-    input_features_tensor = torch.tensor(input_features, dtype=torch.float32).cuda()
-    input_dim = input_features_tensor.shape[-1]
-
-    train_data = prepare_data(context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings,
-                              relevance_scores)
-    ranking_model = ExplanationRankingModel(input_dim)
-
-    train_model(ranking_model, train_data, context_embeddings, input_embeddings, dsm_embeddings,
-                explanation_embeddings, epochs=30, learning_rate=0.001)
+    ranking_model = train(dsm_criteria, explanations, in_context_demonstrations, input_texts, relevance_scores)
 
     ranked_explanations = rank_explanations(ranking_model, explanations, input_texts, in_context_demonstrations,
                                             dsm_criteria, top_k=2)
