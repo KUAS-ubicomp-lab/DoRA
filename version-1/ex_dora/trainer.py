@@ -157,29 +157,28 @@ def train_model(ranking_model, train_data, context_embeddings, input_embeddings,
 
 
 def rank_explanations(model, explanations, input_texts, context_examples, dsm_criteria, top_k):
-    context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings = extract_features(input_texts,
-                                                                                                    context_examples,
-                                                                                                    explanations,
-                                                                                                    dsm_criteria)
-    context_embeddings = context_embeddings.cpu().numpy()
-    input_embeddings = input_embeddings.cpu().numpy()
-    dsm_embeddings = dsm_embeddings.cpu().numpy()
-    explanation_embeddings = [embedding.cpu().numpy() for embedding in explanation_embeddings]
-
-    input_features_list = []
-    for explanation_embedding in explanation_embeddings:
-        input_features = np.concatenate((context_embeddings, input_embeddings, dsm_embeddings, explanation_embedding),
-                                        axis=1)
-        input_features_list.append(input_features)
-
-    input_features = torch.tensor(np.vstack(input_features_list), dtype=torch.float32).cuda()
+    context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings = extract_features(
+        input_texts=input_texts,
+        in_context_demonstrations=context_examples,
+        explanations=explanations,
+        dsm_criteria=dsm_criteria
+    )
+    input_features = prepare_input_features(
+        context_embeddings=context_embeddings,
+        input_embeddings=input_embeddings,
+        dsm_embeddings=dsm_embeddings,
+        explanation_embeddings=explanation_embeddings
+    )
+    input_features = torch.tensor(input_features, dtype=torch.float32).cuda()
 
     model.eval()
     with torch.no_grad():
         relevance_scores = model(input_features).cpu().numpy()
+
+    top_k = min(top_k, len(explanations))
     relevance_scores = relevance_scores.flatten()
-    ranked_indices = np.argsort(-relevance_scores)[:top_k]
-    ranked_explanations = [explanations[i] for i in ranked_indices]
+    ranked_indices = np.argsort(-relevance_scores)
+    ranked_explanations = [explanations[i] for i in ranked_indices if i < len(explanations)][:top_k]
     return ranked_explanations
 
 
@@ -225,7 +224,7 @@ def main():
     ranking_model = ExplanationRankingModel(input_dim)
 
     train_model(ranking_model, train_data, context_embeddings, input_embeddings, dsm_embeddings,
-                explanation_embeddings, epochs=10, learning_rate=0.001)
+                explanation_embeddings, epochs=30, learning_rate=0.001)
 
     ranked_explanations = rank_explanations(ranking_model, explanations, input_texts, in_context_demonstrations,
                                             dsm_criteria, top_k=2)
