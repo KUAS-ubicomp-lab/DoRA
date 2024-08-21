@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from sentence_transformers import SentenceTransformer, util
-from torch.utils.data import DataLoader, Dataset, TensorDataset
+from torch.utils.data import DataLoader, Dataset
 
 import explanations_generator
 
@@ -134,7 +134,7 @@ def prepare_input_features(context_embeddings, input_embeddings, dsm_embeddings,
 
 
 def train_model(ranking_model, train_data, context_embeddings, input_embeddings, dsm_embeddings,
-                explanation_embeddings, epochs=10, learning_rate=0.001):
+                explanation_embeddings, epochs, learning_rate):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     ranking_model.to(device)
     optimizer = optim.Adam(ranking_model.parameters(), lr=learning_rate)
