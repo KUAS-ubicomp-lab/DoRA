@@ -1,6 +1,7 @@
 import os
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,13 +13,25 @@ import explanations_generator
 current_dir = os.path.dirname(os.path.abspath(__file__))
 
 
+def load_input_data():
+    input_data = {}
+    for root, ds, fs in os.walk('input_data'):
+        for fn in fs:
+            data = pd.read_csv(os.path.join(root, fn))
+            texts = data['text'].to_list()
+            labels = data['label'].to_list()
+            input_data[fn.split('.')[0]] = [texts, labels]
+    return input_data
+
+
 def extract_features(input_texts, in_context_demonstrations, explanations, dsm_criteria,
                      similarity_model='sentence-transformers/all-MiniLM-L6-v2'):
     feature_extractor = SentenceTransformer(similarity_model)
     context_embeddings = feature_extractor.encode(in_context_demonstrations, convert_to_tensor=True)
     input_embeddings = feature_extractor.encode(input_texts, convert_to_tensor=True)
     dsm_embeddings = feature_extractor.encode(dsm_criteria, convert_to_tensor=True)
-    explanation_embeddings = [feature_extractor.encode([explanation], convert_to_tensor=True) for explanation in explanations]
+    explanation_embeddings = [feature_extractor.encode([explanation], convert_to_tensor=True) for explanation in
+                              explanations]
 
     return context_embeddings, input_embeddings, dsm_embeddings, explanation_embeddings
 
@@ -209,10 +222,9 @@ def main():
         "She felt overwhelmed by the constant demands at work and home.",
         "He was anxious about the upcoming exams and had trouble sleeping."
     ]
-    input_texts = [
-        "I'm struggling to find motivation and everything seems pointless.",
-        "I don't feel like doing anything anymore, even the things I used to love."
-    ]
+    top_k = 5
+    input_data_list = list(load_input_data().values())[0]
+    input_texts = [input_data_list[0][idx] for idx, input_data in enumerate(input_data_list[1]) if input_data == 1][:top_k]
     dsm_criteria = [
         "Persistent sad, anxious, or 'empty' mood",
         "Feelings of hopelessness or pessimism",

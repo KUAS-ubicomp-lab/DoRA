@@ -20,7 +20,7 @@ def load_model_and_tokenizer(engine):
     return model, tokenizer, device
 
 
-def generate_explanations(utterances, in_context_demonstrations, engine, max_length=200, num_return_sequences=3):
+def generate_explanations(utterances, in_context_demonstrations, engine, max_length=5000, num_return_sequences=3):
     model, tokenizer, device = load_model_and_tokenizer(engine)
     # The prompt is adjusted to emphasize the depressive elements of both the in-context demonstrations and
     # the input utterance. This helps guide the model to focus on recognizing and explaining depressive content.
