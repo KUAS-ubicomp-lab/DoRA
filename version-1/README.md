@@ -56,3 +56,18 @@ The results of LLM OOD transferability in terms of R10@1 for DUC using zero-shot
 The results of LLM OOD transferability in terms of F1 score for DSI using zero-shot, 2-shot, and 5-shot top-ranked demonstrations.
 
 ![2](https://github.com/KUAS-ubicomp-lab/DoRA/assets/4902204/06658302-5932-43fc-9e95-9c6d7f1df6fa)
+
+# Cite
+If you think of using the code, please cite our paper:
+**"<i>DoRA</i>: *D*ual-encoder Dem*o*nstration *R*etriever *A*rchitecture to Transfer Large Language Models for Depressive Symptom Detection"**
+Prasan Yapa, Zilu Liang, and Ian Piumarta. _ACM Health 2025_
+
+```
+ @article{priyadarshana2025dora,
+  title={DoRA: D ual-encoder dem o nstration R etriever A rchitecture to Transfer Large Language Models for Depressive Symptom Detection},
+  author={Priyadarshana, YHPP and Liang, Zilu and Piumarta, Ian},
+  journal={ACM Transactions on Computing for Healthcare},
+  year={2025},
+  publisher={ACM New York, NY}
+}
+```
